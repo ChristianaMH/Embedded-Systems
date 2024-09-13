@@ -1,0 +1,79 @@
+Problem Description: For this assignment, we used a 4 x 4 matrix keypad to obtain a speed percentage input from the user. This input was displayed on an LCD screen. Using an H bridge, we generated a PWM output to set the speed of an electric motor. The communication protocol between the MCU and the LCD screen was I2C. We used Ports 1.0 to 1.7 on the MCU for the keypad, Ports 4.6 and 4.7 for the LCD screen, and Ports 2.0 and 2.1 for the H bridge.
+
+Pseudocode:
+1. **Initialization**
+    - Stop the watchdog timer
+    - Configure Port 1 for keypad input/output
+    - Configure Port 2 for motor control
+    - Setup Timer B3 with ACLK, up mode, and initial period and duty cycle values
+    - Initialize the I2C communication for the LCD display
+    - Display initial message "Hello :D" followed by "Enter Number:" on the LCD
+2. **Main Loop**
+    - Wait for user input via keypad until `completed` flag is set
+    - If input value is less than 100:
+        - Calculate `stageInput` as a percentage of the maximum value (655)
+        - Set `TB3CCR1` to `stageInput`
+        - Update LCD to show the entered duty cycle percentage
+    - If input value is 100 or more:
+        - Set `stageInput` to the maximum value (655)
+        - Update LCD to show "Duty Cycle:100%"
+    - Reset `input`, `digit`, and `completed` flags
+3. **Delay Function**
+    - Create a delay based on the given milliseconds
+4. **Timer Interrupts**
+    - `TIMER3_B0_VECTOR`:
+        - If `TB3CCR1` is not zero, turn on motor (set P2.0 high)
+        - Clear the interrupt flag
+    - `TIMER3_B1_VECTOR`:
+        - Turn off motor (set P2.0 low)
+        - Clear the interrupt flag
+5. **Key Press Interrupt**
+    - Scan the keypad to identify which key is pressed
+    - Determine the key value based on the scan result
+    - If key is not a digit or `#`, reset `input` and `digit` values
+    - If key is `#`, set `completed` flag to 1
+    - If key is a digit, update `input` value based on the current `digit` position (hundreds, tens, units)
+        - If digit position exceeds two (overflow), reset `input` and `digit` values
+    - Reset Port 1 output and clear interrupt flags
+### Detailed Flow
+1. **Initialization**
+    - Stop watchdog timer (`WDTCTL = WDTPW | WDTHOLD`)
+    - Configure Port 1 as:
+        - P1.0 - P1.3: Output for keypad rows
+        - P1.4 - P1.7: Input with pull-up resistors for keypad columns
+    - Configure Port 2 for motor control:
+        - P2.0: Output for motor enable
+        - P2.1: Output for motor direction
+    - Setup Timer B3 with ACLK, up mode:
+        - `TB3CCR0` for period length (655)
+        - `TB3CCR1` for duty cycle (initially 0)
+        - Enable interrupts for both CCR0 and CCR1
+    - Initialize I2C for LCD display, set initial messages on LCD
+    - Enable global interrupts
+2. **Main Loop**
+    - Wait for `completed` flag to be set (indicating user has pressed `#` to finish input)
+    - Calculate and set duty cycle based on `input` value:
+        - For `input` < 100: Calculate `stageInput`, set `TB3CCR1`, update LCD with duty cycle percentage
+        - For `input` >= 100: Set `stageInput` to 655, update LCD with "100%" message
+    - Reset `input`, `digit`, and `completed` flags for next input sequence
+3. **Delay Function**
+    - Implement a simple delay loop to create a delay based on the input milliseconds
+4. **Timer Interrupts**
+    - `ISR_TB3_CCR0`:
+        - If `TB3CCR1` is not zero, turn on motor (set P2.0 high)
+        - Clear `TB3CCTL0` interrupt flag
+    - `ISR_TB3_CCR1`:
+        - Turn off motor (set P2.0 low)
+        - Clear `TB3CCTL1` interrupt flag
+5. **Key Press Interrupt**
+    - Scan the keypad by iterating through rows and checking columns:
+        - Set `keyport` to active row
+        - Check each column for a pressed key
+        - Determine key value based on row and column
+    - Update `input` based on the key value:
+        - If key is `#`, set `completed` flag
+        - If key is a digit, update `input` for the current digit position (hundreds, tens, units)
+    - Reset Port 1 output and clear interrupt flags
+
+Wiring Diagram:
+v
